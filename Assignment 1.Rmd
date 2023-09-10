@@ -1,0 +1,74 @@
+---
+title: "Assignment 1"
+author: "James Guy"
+date: "2023-09-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+> #For this assignment I downloaded a dataset for a highly competitive game I play called League of Legends. I got this dataset from kaggle.com @ https://www.kaggle.com/datasets/andrewasuter/lol-challenger-soloq-data-jan-krnaeuw?resource=download&select=NAmatch.csv 
+> dat<-read.csv("C:/Users/gamem/OneDrive/Documents/Masters Program/Fundamentals of Machine Learning/NAmatchDataset.csv")
+> Summary_data<-data.frame(champion=dat$champion, side=dat$side, assists=dat$assists, damage_turrets=dat$damage_turrets, kda=dat$kda)
+> View(Summary_data)
+> summary(Summary_data)
+   champion             side              assists       damage_turrets         kda        
+ Length:5760        Length:5760        Min.   : 0.000   Min.   :    0.0   Min.   : 0.000  
+ Class :character   Class :character   1st Qu.: 4.000   1st Qu.:  319.5   1st Qu.: 1.333  
+ Mode  :character   Mode  :character   Median : 7.000   Median : 1436.5   Median : 2.429  
+                                       Mean   : 7.933   Mean   : 2542.1   Mean   : 3.747  
+                                       3rd Qu.:11.000   3rd Qu.: 3617.5   3rd Qu.: 4.500  
+                                       Max.   :41.000   Max.   :33335.0   Max.   :35.000  
+> print(summary(Summary_data))
+   champion             side              assists       damage_turrets         kda        
+ Length:5760        Length:5760        Min.   : 0.000   Min.   :    0.0   Min.   : 0.000  
+ Class :character   Class :character   1st Qu.: 4.000   1st Qu.:  319.5   1st Qu.: 1.333  
+ Mode  :character   Mode  :character   Median : 7.000   Median : 1436.5   Median : 2.429  
+                                       Mean   : 7.933   Mean   : 2542.1   Mean   : 3.747  
+                                       3rd Qu.:11.000   3rd Qu.: 3617.5   3rd Qu.: 4.500  
+                                       Max.   :41.000   Max.   :33335.0   Max.   :35.000  
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> Summary_data <- Summary_data %>% mutate(High_KDA = ifelse(Summary_data$kda>3,"yes","no"))
+> library(corrplot)
+corrplot 0.92 loaded
+> corrplot(cor(Summary_data[c("damage_turrets","kda")]))
+> plot(Summary_data$damage_turrets, Summary_data$kda)
+> pdf("my_plot.pdf")
+> print(my_plot)
+Error: object 'my_plot' not found
+> pdf("correlation_plot.pdf")
+```
