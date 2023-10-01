@@ -1,0 +1,141 @@
+---
+title: "Assignment 2"
+author: "James Guy"
+date: "2023-10-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+# load necessary libraries
+library(dplyr)
+library(class)
+library(caret)
+library(ggplot2)
+library(lattice)
+```
+```{r}
+# Load the data
+UniversalBank <- read.csv("~/Masters Program/Fundamentals of Machine Learning/Assignment 2/UniversalBank.csv")
+```
+```{r}
+data<-UniversalBank
+```
+```{r}
+# Convert Education to dummy variables
+data <- mutate(data, Education_1 = ifelse(Education == 1, 1, 0),
+               Education_2 = ifelse(Education == 2, 1, 0),
+               Education_3 = ifelse(Education == 3, 1, 0))
+```
+```{r}
+# Remove ID, ZIP Code, and original Education columns
+data <- select(data,-c(ID, ZIP.Code, Education))
+```
+```{r}
+# Split the data into training (60%) and validation (40%) sets
+set.seed(123)
+splitIndex <- createDataPartition(data$Personal.Loan, p = 0.60, list = FALSE)
+```
+```{r}
+train_data <- data[splitIndex, ]
+valid_data <- data[-splitIndex, ]
+```
+```{r}
+# Adding the new customer data
+new_customer <- data.frame(Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, 
+                           Education_1 = 0, Education_2 = 1, Education_3 = 0, Mortgage = 0, 
+                           Securities.Account = 0, CD.Account = 0, Online = 1, CreditCard = 1)
+```
+```{r}
+#Predicting whether the customer will accept the loan offer with a k=1
+predicted_class <- knn(train = train_data[, -9], test = new_customer, cl = train_data$Personal.Loan, k = 1)
+print(predicted_class)
+```
+1. This customer is predicted to reject the new loan offer as his level is predicted at 0. A level of 0 means the customer is not predicted to accept the loan offer and a level of 1 means the customer is predicted to accept the loan offer.
+```{r}
+# Convert 'Personal Loan' column to a factor
+train_data$Personal.Loan <- as.factor(train_data$Personal.Loan)
+valid_data$Personal.Loan <- as.factor(valid_data$Personal.Loan)
+```
+
+```{r}
+# Set up the search grid and train the model with preprocessing
+Search_grid <- expand.grid(k = c(1:20))
+```
+```{r}
+#Finding the optimal value of K
+knn_model <- train(Personal.Loan ~ ., data=train_data, method="knn", tuneGrid=Search_grid)
+```
+```{r}
+# Print the model results
+print(knn_model)
+```
+2. The choice of k that balances between overfitting and ignoring the predictor information is k=15 found by the code above.
+
+```{r}
+library(gmodels)
+# Predict on validation data using the trained k-NN model
+predicted_valid <- predict(knn_model, newdata = valid_data)
+
+# Generate the confusion matrix for the validation data using CrossTable
+CrossTable(predicted_valid, valid_data$Personal.Loan, 
+           prop.chisq = FALSE)
+```
+3. The printed confusion matrix is shown above using the optimal k of 15.
+```{r}
+#Predicting whether the customer will accept the loan offer with the optimal k of 15
+optimal_prediction <- knn(train = train_data[, -9], test = new_customer, cl = train_data$Personal.Loan, k = 15)
+print(optimal_prediction)
+```
+4. The customer is predicted to reject the loan offer, even with an optimal k value of 15.
+```{r}
+# Repartition data into training, validation, and test sets (50% : 30% : 20%)
+set.seed(123)
+trainIndex <- createDataPartition(data$Personal.Loan, times = 1, p = 0.5, list = FALSE)
+train_data_50 <- data[trainIndex, ]
+temp_data <- data[-trainIndex, ]
+```
+```{r}
+validIndex <- createDataPartition(temp_data$Personal.Loan, times = 1, p = 0.6, list = FALSE)
+valid_data_30 <- temp_data[validIndex, ]
+test_data_20 <- temp_data[-validIndex, ]
+```
+```{r}
+# Convert Personal Loan to a factor for all datasets
+train_data_50$Personal.Loan <- as.factor(train_data_50$Personal.Loan)
+valid_data_30$Personal.Loan <- as.factor(valid_data_30$Personal.Loan)
+test_data_20$Personal.Loan <- as.factor(test_data_20$Personal.Loan)
+```
+```{r}
+# Train k-NN model with the best k from the earlier model on the 50% training data
+knn_model_50 <- train(Personal.Loan ~ ., 
+                      data=train_data_50, 
+                      method="knn", 
+                      tuneGrid=data.frame(k=knn_model$bestTune$k), 
+                      preProcess="range")
+```
+```{r}
+# Predict on all the new sets
+predicted_train <- predict(knn_model_50, newdata = train_data_50)
+predicted_valid <- predict(knn_model_50, newdata = valid_data_30)
+predicted_test <- predict(knn_model_50, newdata = test_data_20)
+```
+```{r}
+# Confusion matrices
+CrossTable(predicted_valid, valid_data_30$Personal.Loan, 
+           prop.chisq = FALSE, prop.t = FALSE, prop.r = FALSE,
+           dnn = c('Predicted', 'Actual'))
+```
+```{r}
+CrossTable(predicted_test, test_data_20$Personal.Loan, 
+           prop.chisq = FALSE, prop.t = FALSE, prop.r = FALSE,
+           dnn = c('Predicted', 'Actual'))
+```
+```{r}
+CrossTable(predicted_train, train_data_50$Personal.Loan, 
+           prop.chisq = FALSE, prop.t = FALSE, prop.r = FALSE,
+           dnn = c('Predicted', 'Actual'))
+```
+5. Precisions of the confusion matrices: valid_data precision = 37/(37+106)= 0.26; test_data precision = 33/(33+75)=0.31; train_data precision = 75/(75+154)=0.33 <br> The training data had the highest precision, which makes sense because it is what the data was trained off of. This should always have the highest precision. The next highest precision is the test data, which is great because that means our model predicted the results well.
