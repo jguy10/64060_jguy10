@@ -1,0 +1,68 @@
+---
+title: "Assignment 3"
+author: "James Guy"
+date: "2023-10-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+UniversalBank <- read.csv("~/Masters Program/Fundamentals of Machine Learning/Assignment 3/UniversalBank.csv")
+library(ggplot2)
+library(lattice)
+library(caret)
+library(ISLR)
+library("gmodels")
+library(pROC)
+set.seed(123)
+data<-UniversalBank
+```
+```{r}
+Index_Train <- createDataPartition(data$CreditCard, p=0.6, list=FALSE)
+Train <- data[Index_Train,]
+Test  <- data[-Index_Train,]
+pivot_table<-table(Train$CreditCard,Train$Online,Train$Personal.Loan)
+#A.
+print(pivot_table)
+```
+#B<br>
+#Using the pivot table we would need to divide the total number of customers who are using online banking services, have a credit card, and accepted the personal loan by the total number of customers who are using online banking services, have a credit card, but declined the personal loan plus the previous number. This is 57/(57+475) = 0.1071 or 10.71%.<br>
+```{r}
+#C.
+pivot_loan_online <- table(Train$Personal.Loan, Train$Online)
+print(pivot_loan_online)
+```
+```{r}
+pivot_loan_cc <- table(Train$Personal.Loan, Train$CreditCard)
+print(pivot_loan_cc)
+```
+#D.<br>
+i. 91/(91+187)=0.3273 or 32.73%<br>
+ii. 179/(179+99)=0.6439 or 64.39%<br>
+iii. (99+179)/(1102+1620+99+179)=0.0927 or 9.27%<br>
+iv. 792/(1930+792)=0.2910 or 29.10%<br>
+v. 1620/(1620+1102)=0.5952 or 59.52%<br>
+vi. (1102+1620)/(99+179+1102+1620)=0.9073 or 90.73%<br>
+```{r}
+#E.
+p_loan_given_cc_online<-0.0927*0.3273*0.6439
+p_loan_given_cc_online
+```
+#naive Bayes probability = 1.95%  calculated by 0.927 x 0.3273 x 0.6439<br>
+#F.<br>
+The value obtained from the pivot table in (B) is 10.71% and the value from the naive Bayes probability is 1.95%. This shows that the probability is 8.76% lower when using the naive Bayes probability. For the training set the probability found in (B) from the pivot table is more accurate, but if we are going to predict on a large amount of unseen data and believe that the conditions are independent of each other (CC & Online) then the naive Bayes probability would be more accurate.<br>
+```{r}
+#G.
+library(e1071)
+model <- naiveBayes(Personal.Loan ~ CreditCard + Online, data=Train)
+print(model)
+```
+#We need the number of people who accepted the loan with CC = 1 and Online = 1, which is 57. We also need the total number of people with CC = 1 and Online = 1, which is (57+475)=532.
+```{r}
+#Using the model to predict
+predicted_prob<-predict(model, newdata=data.frame(CreditCard=1, Online=1), type="raw")
+print(predicted_prob)
+```
+#P(Loan=0∣CC=1,Online=1)=0.8843 or 88.43% from the prediction. P(Loan=1∣CC=1,Online=1) = 0.1157 or 11.57% from the prediction. The number I obtained in (E) is 1.95%, while the predicted probability is 11.57%. The prediction from the naive Bayes model is 9.62% higher, which is quite a substantial difference. The reason for this difference is likely because the conditions of CC and Online are most likley not independent.
