@@ -1,0 +1,238 @@
+---
+title: "Assignment 4"
+author: "James Guy"
+date: "2023-10-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+Pharmaceuticals <- read.csv("~/Masters Program/Fundamentals of Machine Learning/Assignment 4/Pharmaceuticals.csv")
+```
+```{r}
+library(tidyverse)
+library(factoextra)
+library(ISLR)
+set.seed(123)
+```
+```{r}
+MC_Beta<-Pharmaceuticals[,c(3,4)]
+```
+```{r}
+summary(MC_Beta)
+```
+I chose Market_Cap and Beta for the first cluster because I wanted to group the companies by their volatility and what the company is worth.
+```{r}
+MC_Beta<-scale(MC_Beta)
+distance<-get_dist(MC_Beta)
+fviz_dist(distance)
+```
+<br>I used the silhouette method to choose the optimal number of clusters.
+```{r}
+fviz_nbclust(MC_Beta, kmeans, method = "silhouette")
+```
+
+```{r}
+k4<-kmeans(MC_Beta,centers=3,nstart = 25)
+k4$centers
+```
+```{r}
+k4$size
+```
+```{r}
+k4$cluster[18]
+```
+As can be seen from the plot below the red cluster tends to have higher beta, but a low market cap. This means that these companies have more volatile stock, but a lower market capitalization. The majority of the companies fall in cluster 2, showing that they have close to average beta and market cap. <br><br>
+
+The only pattern, with respect to variables 10-12, from the clusters below is that cluster 3 companies are all either moderate buy's or holds.
+```{r}
+fviz_cluster(k4,data = MC_Beta)
+```
+<br>I chose PE_Ratio and ROE for the next cluster because I wanted to see where the companies were grouped by these metrics.
+```{r}
+PE_ROE<-Pharmaceuticals[,c(5,6)]
+```
+```{r}
+summary(PE_ROE)
+```
+```{r}
+PE_ROE<-scale(PE_ROE)
+distance<-get_dist(PE_ROE)
+fviz_dist(distance)
+```
+<br>I used the silhouette method to choose the optimal number of clusters.
+```{r}
+fviz_nbclust(PE_ROE, kmeans, method = "silhouette")
+```
+```{r}
+k4<-kmeans(PE_ROE,centers=3,nstart = 25)
+k4$centers
+```
+```{r}
+k4$size
+```
+```{r}
+k4$cluster[18]
+```
+As can be seen from the plot below the red cluster tends to have PE_Ratios, but lower return on equity. This means that these companies have more volatile stock, but a lower market capitalization. The majority of the companies fall in cluster 2, showing that they have close to average beta and market cap. <br><br>
+
+The pattern I see, with respect to variables 10-12, below is that cluster 3 companies are majorly from the US.
+```{r}
+fviz_cluster(k4,data = PE_ROE)
+```
+<br>I chose ROA and Asset_Turnover for the next cluster because I wanted to see where the companies were grouped by these metrics.
+```{r}
+ROA_AT<-Pharmaceuticals[,c(7,8)]
+```
+```{r}
+summary(ROA_AT)
+```
+```{r}
+ROA_AT<-scale(ROA_AT)
+distance<-get_dist(ROA_AT)
+fviz_dist(distance)
+```
+<br>I used the silhouette method again to find the optimal number of clusters.
+```{r}
+fviz_nbclust(ROA_AT, kmeans, method = "silhouette")
+```
+```{r}
+k4<-kmeans(ROA_AT,centers=5,nstart = 25)
+k4$centers
+```
+```{r}
+k4$size
+```
+```{r}
+k4$cluster[18]
+```
+This cluster plot shows that cluster 5 has lower than average ROA and Asset Turnover, while cluster 1 is the exact opposite. Clusters 4 and 5 are where the majority of the companies lie based on these metrics.<br><br>
+
+The pattern I see below, with respect to variables 10-12, is that the 4th cluster are majorly Moderate Buys and Holds.
+```{r}
+fviz_cluster(k4,data = ROA_AT)
+```
+<br>I chose Leverage and Rev_Growth for the next cluster.
+```{r}
+Lev_RG<-Pharmaceuticals[,c(9,10)]
+```
+```{r}
+summary(Lev_RG)
+```
+```{r}
+Lev_RG<-scale(Lev_RG)
+distance<-get_dist(Lev_RG)
+fviz_dist(distance)
+```
+<br>Once again I used the silhouette method for choosing the optimal amount of clusters, which turned out to be 7.
+```{r}
+fviz_nbclust(Lev_RG, kmeans, method = "silhouette")
+```
+
+```{r}
+k4<-kmeans(Lev_RG,centers=7,nstart = 25)
+k4$centers
+```
+```{r}
+k4$size
+```
+```{r}
+k4$cluster[18]
+```
+From the plot below we see that cluster 1 has 6 companies and they are all below average for Rev_Growth, but all very close to average for Leverage.<br><br>
+
+The pattern I see, with respect to variables 10-12, is that cluster 1 are majorly US companies, with only 2 of those companies being from the UK and Canada.
+```{r}
+fviz_cluster(k4,data = Lev_RG)
+```
+<br>For the last cluster I chose the variables Rev_Growth and Net_Profit_Margin.
+```{r}
+RG_NPM<-Pharmaceuticals[,c(10,11)]
+```
+```{r}
+summary(RG_NPM)
+```
+```{r}
+RG_NPM<-scale(RG_NPM)
+distance<-get_dist(RG_NPM)
+fviz_dist(distance)
+```
+<br>I used the silhouette method again to find the optimal number of clusters at 3.
+```{r}
+fviz_nbclust(RG_NPM, kmeans, method = "silhouette")
+```
+```{r}
+k4<-kmeans(RG_NPM,centers=3,nstart = 25)
+k4$centers
+```
+```{r}
+k4$size
+```
+```{r}
+k4$cluster[18]
+```
+From the plot below there are 3 clusters. The green cluster has higher than average Net_Profit_Margin, but lower than average Rev_Growth. The red cluster is lower than average for both variables.<br><br>
+
+The pattern I see, with respect to variables 10-12, is that the red cluster are all buys and hold ratings, with no sell ratings.
+```{r}
+fviz_cluster(k4,data = RG_NPM)
+```
+
+<br><br>
+Using variables 1-9 for 1 plot:
+
+```{r}
+All_Var<-Pharmaceuticals[,c(3:11)]
+```
+```{r}
+summary(All_Var)
+```
+```{r}
+All_Var<-scale(All_Var)
+distance<-get_dist(All_Var)
+fviz_dist(distance)
+```
+<br>I used the silhouette method again to find the optimal number of clusters at 5.
+```{r}
+fviz_nbclust(All_Var, kmeans, method = "silhouette")
+```
+```{r}
+k4<-kmeans(All_Var,centers=5,nstart = 25)
+k4$centers
+```
+```{r}
+k4$size
+```
+```{r}
+k4$cluster[18]
+```
+
+```{r}
+library(gplots)
+```
+```{r}
+heatmap.2(as.matrix(All_Var), 
+         main="Heatmap", 
+         trace="none",
+         col=bluered(100), 
+         scale="none", 
+         dendrogram="row", 
+         Rowv=TRUE, 
+         Colv=FALSE)
+```
+<br><br>
+From the plot below, I see that cluster 1 has much higher than average PE_Ratio and cluster 4 has much higher than average Leverage. 
+```{r}
+All_Var <- data.frame(All_Var, Cluster = as.factor(k4$cluster))
+library(GGally)
+library(ggplot2)
+
+p <- ggparcoord(data = All_Var, columns = 1:(ncol(All_Var)-1), groupColumn = ncol(All_Var), order = "anyClass") + 
+  scale_color_brewer(palette = "Set1") + 
+  theme_minimal()
+
+print(p)
+```
