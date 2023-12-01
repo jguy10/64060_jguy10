@@ -1,0 +1,117 @@
+```{r}
+Cereals<-read.csv("C:/Users/reape/OneDrive/Documents/Masters Program/Fundamentals of Machine Learning/Assignment 5/Cereals.csv")
+```
+```{r}
+#Data Preprocessing
+cereals_cleaned <- na.omit(Cereals)
+```  
+```{r}
+row.names(cereals_cleaned) <- cereals_cleaned$name
+numeric_columns <- cereals_cleaned[, sapply(cereals_cleaned, is.numeric)]
+Cereals_scaled <- scale(numeric_columns)
+```
+```{r}
+d <- dist(Cereals_scaled, method = "euclidean")
+```
+```{r}
+#Applying agnes to compare clustering from single linkage, complete linkage, average linkage, and Ward:
+library(cluster)
+hc_single <- agnes(Cereals_scaled, method = "single")
+hc_complete <- agnes(Cereals_scaled, method = "complete")
+hc_average <- agnes(Cereals_scaled, method = "average")
+hc_ward <- agnes(Cereals_scaled, method = "ward")
+print(hc_single$ac)
+print(hc_complete$ac)
+print(hc_average$ac)
+print(hc_ward$ac)
+```
+1. Comparing the the clustering from the agnes method using single linkage, complete, average, and Ward shows that Ward is the best method has it has the highest coefficient. 
+```{r}
+hc1<-hclust(d,method = "ward")
+plot(hc1,cex=0.6,hang=-1)
+```
+```{r}
+pltree(hc_ward,cex=0.6,hang=-1,main="Dendrogram of agnes")
+```
+```{r}
+plot(hc1,cex=0.6,hang=-1)
+rect.hclust(hc1,k=4,border = 1:4)
+```
+```{r}
+cereals_cleaned$cluster <- cutree(hc1, k = 4)
+```
+
+2. I chose 4 clusters as I believe that best suits the data shown in the dendrogram above based on the height of the vertical lines.
+<br><br>
+3. 
+```{r}
+set.seed(123)
+partition_index <- sample(1:nrow(cereals_cleaned), size = 0.7 * nrow(cereals_cleaned))
+partition_A <- cereals_cleaned[partition_index, ]
+partition_B <- cereals_cleaned[-partition_index, ]
+numeric_columns_A <- partition_A[, sapply(partition_A, is.numeric)]
+partition_A$cluster <- cereals_cleaned$cluster[partition_index]
+centroids_A <- aggregate(. ~ cluster, data = numeric_columns_A, FUN = mean)
+```
+```{r}
+#Creating the for loop
+euclidean <- function(a, b) sqrt(sum((a - b)^2))
+assigned_clusters_B <- numeric(nrow(partition_B))
+for (i in 1:nrow(partition_B)) {
+  row_data <- partition_B[i, sapply(partition_B, is.numeric)]
+  distances <- apply(centroids_A[, -1], 1, function(x) euclidean(x, row_data))
+  assigned_clusters_B[i] <- which.min(distances)
+}
+```
+```{r}
+#Adding the clusters to partition B
+partition_B$new_cluster <- assigned_clusters_B
+```
+```{r}
+#Creating a table to compare the differences between the old and new clusters and check the stability
+comparison_table <- table(partition_B$cluster, partition_B$new_cluster)
+print(comparison_table)
+```
+The original cluster assignments are shown by rows and the new cluster assignments are shown by the columns. From this comparison table we can see that the stability of the clusters varies, with Cluster 4 showing high stability and Cluster 3 showing the least. Clusters 1 and 2 have moderate stability, with movements mainly between themselves. <br><br>
+
+4.
+```{r}
+# Selecting the columns that indicate how healthy cereal is
+health_vars <- cereals_cleaned[, c("calories", "protein", "fat", "fiber", "carbo", "sugars", "potass", "vitamins")]
+```
+```{r}
+# Normalizing the data because the variable ranges are very different from each other
+health_vars_scaled <- scale(health_vars)
+```
+```{r}
+d <- dist(health_vars_scaled, method = "euclidean")
+hc <- hclust(d, method = "ward")
+```
+```{r}
+num_clusters <- 4
+cereals_cleaned$cluster <- cutree(hc, k = num_clusters)
+```
+```{r}
+#Making sure to only select numeric columns
+numeric_columns <- cereals_cleaned[, sapply(cereals_cleaned, is.numeric)]
+```
+```{r}
+# Creating and printing the cluster summary
+cluster_summary <- aggregate(. ~ cluster, data = numeric_columns, FUN = mean)
+print(cluster_summary)
+```
+Yes normalization is needed because some of the number ranges for the variables are vastly different from each other. For example, the range for calories is 50 - 160, whereas the range for protein is 1-6. Out of the 4 clusters, I believe cluster 3 to contain the healthiest cereals. This is because: <br> <br>
+
+
+It has the lowest calorie count. <br>
+It has a decent amount of protein. <br>
+It has the lowest fat content. <br> 
+The fiber content is the 2nd highest of the clusters. <br>
+It has the second highest carbo content, but only a small portion of that content is from sugar. <br>
+It has the lowest sugar content. <br>
+It has the the third highest potassium content. <br>
+It has he lowest vitamin content, but I the other parts of the cereal are very high on the healthy scale so this is okay.
+
+
+
+
