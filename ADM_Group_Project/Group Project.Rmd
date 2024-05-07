@@ -1,0 +1,201 @@
+---
+title: "ADM Group Project"
+author: "James Guy, Durga Prasad Gandi, Niharika Matsa, Deekshitha Sai Sangepu"
+date: "2024-05-05"
+output: html_document
+---
+
+```{r}
+# Load necessary libraries
+library(readr)
+library(dplyr)
+library(caret)
+library(ggplot2)
+library(FactoMineR)
+library(missMDA)
+library(glmnet)
+library(Matrix)
+library(randomForest)
+```
+```{r}
+# Load the datasets
+train_data <- read_csv("C:/Masters Program/Spring 2024/Advanced data mining/Group Project/train_v3.csv")
+test_data <- read_csv("C:/Masters Program/Spring 2024/Advanced data mining/Group Project/test__no_lossv3.csv")
+```
+
+
+```{r}
+# Identify zero variance predictors
+nzv_data <- nearZeroVar(train_data[, setdiff(names(train_data), "loss")], saveMetrics = TRUE)
+zero_variance_features <- rownames(nzv_data[nzv_data$nzv, ])
+
+# Remove zero variance features from the dataset
+train_data_clean <- train_data[, !names(train_data) %in% zero_variance_features]
+test_data_clean <- test_data[, !names(test_data) %in% zero_variance_features]
+
+# Save 'loss' column separately and remove from feature set
+response_var <- train_data_clean$loss  # Save 'loss' column separately
+feature_data <- train_data_clean[, setdiff(names(train_data_clean), "loss")]
+
+# Apply preprocessing to features only
+preProcValues <- preProcess(feature_data, method = c("center", "scale"))
+train_data_scaled <- predict(preProcValues, feature_data)
+
+# Add 'loss' back into the scaled dataset
+train_data_scaled$loss <- response_var
+
+# Apply the same preprocessing to the test data (ensure the test data includes all necessary columns)
+if (all(names(feature_data) %in% names(test_data_clean))) {
+    test_data_scaled <- predict(preProcValues, test_data_clean[names(feature_data)])
+} else {
+    missing_features <- setdiff(names(feature_data), names(test_data_clean))
+    stop(paste("The test data is missing the following required features for preprocessing:", paste(missing_features, collapse = ", ")))
+}
+
+
+```
+```{r}
+# Viewing the last 5 columns and 20 rows of the train_data_scaled
+last_5_columns_train <- tail(train_data_scaled, 20)[, (ncol(train_data_scaled)-4):ncol(train_data_scaled)]
+last_5_columns_test <- tail(test_data_scaled, 20)[, (ncol(test_data_scaled)-4):ncol(test_data_scaled)]
+# Print the subset
+print(last_5_columns_train)
+print(last_5_columns_test)
+```
+```{r}
+# Setting up and using Lasso method to reduce features
+# Impute missing values in features
+train_data_scaled <- train_data_scaled %>%
+  mutate(across(where(is.numeric), ~ifelse(is.na(.), median(., na.rm = TRUE), .)))
+
+# Proceed with setting up the matrix for the Lasso model
+x <- as.matrix(train_data_scaled[, setdiff(names(train_data_scaled), "loss")])
+y <- train_data_scaled$loss
+
+# Fit the Lasso model with cross-validation to find optimal lambda
+cv_lasso <- cv.glmnet(x, y, alpha = 1, family = "gaussian")
+
+# Plot the cross-validation result to visualize performance
+plot(cv_lasso)
+
+# Determine the best lambda from cross-validation
+best_lambda <- cv_lasso$lambda.min
+cat("Best Lambda: ", best_lambda, "\n")
+
+# Fit final Lasso model using the best lambda
+lasso_model <- glmnet(x, y, alpha = 1, lambda = best_lambda, family = "gaussian")
+```
+```{r}
+# Extract coefficients at the best lambda
+lasso_coefficients <- as.matrix(coef(lasso_model, s = best_lambda))
+
+# Extract names of features with non-zero coefficients, excluding the intercept
+selected_features <- rownames(lasso_coefficients)[-1][lasso_coefficients[-1, 1] != 0]
+
+# Display selected feature names to verify
+print(selected_features)
+
+# Create a dataset with only the selected features
+if (length(selected_features) > 0 && all(selected_features %in% names(train_data_scaled))) {
+    train_data_reduced <- train_data_scaled[, selected_features]
+} else {
+    print("No valid selected features, or mismatch in feature names.")
+}
+
+# Print the structure of train_data_reduced to confirm it's correct
+print(dim(train_data_reduced))
+print(colnames(train_data_reduced))
+
+```
+
+
+```{r}
+# Check if the train_data_reduced has the expected columns and data
+print(colnames(train_data_reduced))
+print(dim(train_data_reduced))
+```
+
+
+```{r}
+# Confirm that the target variable 'loss' is included in the reduced dataset
+train_data_reduced$loss <- train_data_scaled$loss
+last_5_columns <- tail(train_data_reduced, 20)[, (ncol(train_data_reduced)-4):ncol(train_data_reduced)]
+
+# Print the subset
+print(last_5_columns)
+
+```
+```{r}
+# Print the number of features in the train_data_reduced dataset
+num_features <- ncol(train_data_reduced)
+cat("Number of features in train_data_reduced:", num_features, "\n")
+```
+
+```{r}
+# Set seed for reproducibility
+set.seed(123)
+
+# Split the data for predicting loss, ensuring 'default' is excluded but 'loss' remains for training
+training_indices <- createDataPartition(train_data_reduced$loss, p=0.8, list=FALSE)
+train <- train_data_reduced[training_indices, ]
+validation <- train_data_reduced[-training_indices, ]
+
+
+# Fit a Random Forest model to predict loss
+rf_model_loss <- randomForest(loss ~ ., data = train, ntree = 100, mtry = sqrt(ncol(train)), importance = TRUE)
+
+# Predict loss using the Random Forest model
+predictions_loss_rf <- predict(rf_model_loss, validation)
+
+# Extract actual loss values for performance evaluation
+validation_actuals <- validation$loss
+
+# Calculate RMSE
+rmse <- sqrt(mean((predictions_loss_rf - validation_actuals)^2))
+print(paste("RMSE for loss prediction:", rmse))
+
+# Calculate Mean Absolute Error (MAE) for loss prediction
+mae <- mean(abs(predictions_loss_rf - validation_actuals))
+print(paste("Mean Absolute Error for loss prediction:", mae))
+
+```
+```{r}
+# Predict loss using the Random Forest model
+predictions_loss_rf <- predict(rf_model_loss, validation)
+
+# Extract actual loss values for performance evaluation
+validation_actuals <- validation$loss
+
+# Plot actual vs. predicted values
+ggplot(data = NULL, aes(x = validation_actuals, y = predictions_loss_rf)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "blue", se = FALSE) +
+  labs(x = "Actual Loss", y = "Predicted Loss",
+       title = "Scatter plot of Actual vs. Predicted Loss") +
+  theme_minimal()
+
+```
+```{r}
+# Predicting the loss on the test data
+
+test_predictions <- predict(rf_model_loss, test_data_scaled)
+
+# Create a submission dataframe
+submission <- data.frame(id = test_data$id, loss = test_predictions)
+
+# Save the submission file
+write.csv(submission, "submission.csv", row.names = FALSE)
+
+# Print the first few rows of the submission to confirm it looks correct
+print(head(submission))
+```
+
+
+
+
+
+
+
+
+
+
