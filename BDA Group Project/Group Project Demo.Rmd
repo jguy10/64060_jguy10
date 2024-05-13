@@ -1,0 +1,168 @@
+---
+title: "Big Data Project Demo"
+author: "James Guy, Henry Moye, Rajya Shree Deshmukh"
+date: "2024-04-21"
+output: html_document
+---
+
+```{r}
+#Loading the required libraries
+library(quantmod)
+library(forecast)
+library(dplyr)
+library(keras)
+library(data.table)
+
+# Gathering the data
+symbol <- "TTD" 
+getSymbols(symbol, src = "yahoo", from = "2020-01-01", to = Sys.Date())
+```
+Data Preparation Stage
+```{r}
+# Data Prep
+stock_data <- get(symbol)
+stock_data <- na.omit(stock_data)
+
+# Calculate mean and standard deviation before any data manipulation
+means <- colMeans(stock_data, na.rm = TRUE)  # Calculate mean ignoring NA values
+stds <- apply(stock_data, 2, sd, na.rm = TRUE)  # Calculate standard deviation ignoring NA values
+```
+```{r}
+#Simulating a B+-tree in R
+
+# Convert stock_data to a data.table
+stock_data_dt <- as.data.table(stock_data)
+
+# Set a key on the data.table for efficient querying, simulating an index
+setkey(stock_data_dt, index)  # Replace 'date' with the actual time column name
+
+# Function to simulate B+-tree range queries using data.table
+query_data <- function(start_date, end_date) {
+  # Efficiently subset the data within the date range
+  # Using binary search on the key 'index'
+  return(stock_data_dt[index %between% c(start_date, end_date)])
+}
+
+# Make sure the start_date and end_date are in the same format as the index column
+# and that they are present in the data for this to work correctly
+result <- query_data(as.Date('2020-01-01'), as.Date('2020-01-31'))
+print(result)
+```
+```{r}
+# Store these values for later use
+mean_vector <- means
+std_vector <- stds
+
+# After calculating means and standard deviations:
+mean_close <- mean_vector["TTD.Close"]
+std_close <- std_vector["TTD.Close"]
+
+# Ensure these values are printed to verify correct extraction
+print(paste("Mean for TTD.Close:", mean_close))
+print(paste("Standard deviation for TTD.Close:", std_close))
+
+# Print means and standard deviations for verification
+print("Means calculated:")
+print(mean_vector)
+print("Standard deviations calculated:")
+print(std_vector)
+
+# Scale the data using calculated means and standard deviations
+scaled_data <- as.data.frame(scale(stock_data, center = mean_vector, scale = std_vector))
+
+# Assuming stock_data is in xts format, check if data is ordered
+if(!is.ordered(index(stock_data))) {
+  print("Data is not in chronological order. Ordering now...")
+  stock_data <- stock_data[order(index(stock_data)),]
+}
+
+# Split the data into training, validation, and testing sets
+set.seed(123)
+train_ratio <- 0.6  # 60% of data for training
+validation_ratio <- 0.2  # 20% of data for validation
+test_ratio <- 0.2  # 20% of data for testing
+n <- nrow(scaled_data)
+train_indices <- 1:floor(train_ratio * n)
+validation_indices <- (max(train_indices) + 1):(max(train_indices) + floor(validation_ratio * n))
+test_indices <- (max(validation_indices) + 1):n
+
+# Assign data to each set
+train_data <- scaled_data[train_indices, ]
+validation_data <- scaled_data[validation_indices, ]
+test_data <- scaled_data[test_indices, ]
+
+# Function to create sequences
+create_sequences <- function(data, past = 30) {
+  x <- list()
+  y <- list()
+  for (i in 1:(nrow(data) - past)) {
+    x[[i]] <- as.matrix(data[i:(i + past - 1), ])
+    y[[i]] <- data[i + past, "TTD.Close"]
+  }
+  x_array <- array(unlist(x), dim = c(length(y), past, ncol(data)))
+  y_vector <- unlist(y)
+  return(list(x = x_array, y = y_vector))
+}
+
+# Create sequences for training, validation, and testing
+train_sequences <- create_sequences(train_data)
+validation_sequences <- create_sequences(validation_data)
+test_sequences <- create_sequences(test_data)
+```
+
+Model Building Phase
+```{r}
+# Building the model
+model <- keras_model_sequential() %>%
+  layer_lstm(units = 50, input_shape = c(30, 6), return_sequences = TRUE) %>%
+  layer_dropout(rate = 0.2) %>%
+  layer_lstm(units = 50, return_sequences = FALSE) %>%
+  layer_dropout(rate = 0.2) %>%
+  layer_dense(units = 1)
+
+model %>% compile(
+  loss = 'mse',
+  optimizer = optimizer_adam(),
+  metrics = c('mean_absolute_error')
+)
+
+# Define early stopping callback
+early_stopping <- callback_early_stopping(monitor = "val_loss", patience = 10, restore_best_weights = TRUE)
+```
+Model Training
+```{r}
+# Training the model
+history <- model %>% fit(
+  train_sequences$x, train_sequences$y,
+  epochs = 100,
+  batch_size = 32,
+  validation_data = list(validation_sequences$x, validation_sequences$y),
+  callbacks = list(early_stopping)
+)
+
+# Plot the training history
+plot(history)
+
+# For prediction, select the last 30 days of data
+last_30_days <- tail(stock_data, 30)
+last_30_days_selected <- last_30_days[, colnames(scaled_data)]
+
+# Scale these last 30 days with the same mean and std
+last_30_days_scaled <- scale(last_30_days_selected, center = mean_vector, scale = std_vector)
+
+# Prepare the data for prediction
+last_sequence_scaled <- array(as.matrix(last_30_days_scaled), dim = c(1, 30, ncol(last_30_days_scaled)))
+
+# Predict using the updated model
+predicted_scaled_price <- predict(model, last_sequence_scaled)
+
+# Later, use these to rescale the predicted price:
+predicted_price_usd <- (predicted_scaled_price * std_close) + mean_close
+predicted_price_usd <- as.numeric(predicted_price_usd)  # Convert to numeric if necessary
+
+# Print the predicted closing price in USD
+print(paste("Predicted closing price for TTD on the next trading day is:", predicted_price_usd))
+
+```
+
+
